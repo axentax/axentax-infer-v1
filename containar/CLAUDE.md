@@ -6,6 +6,7 @@
 LoRAを使用する
 
 ## ソースにバージョン接頭辞を付与する。改変した場合は3桁番号をインクリメント
+> 命名規則 v{VERSION}_{3桁番号}_{機能名}.py に統一
 v1_000_lora_finetune.py
 v1_001_lora_finetune_simple.py
 v1_000_infer.py
