@@ -1,13 +1,14 @@
 FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
 
-RUN pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cu128 \
+RUN pip install --no-cache-dir --prefer-binary \
+    --extra-index-url https://download.pytorch.org/whl/cu128 \
     torch torchvision torchaudio \
+ && pip install --no-cache-dir \
     transformers peft datasets accelerate
 
 # 必要パッケージ
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-      curl ca-certificates git bash coreutils \
+      curl ca-certificates git bash coreutils build-essential \
   && rm -rf /var/lib/apt/lists/*
 
 # nvm をシステム共通ディレクトリに配置
@@ -28,13 +29,30 @@ ENV PATH="$NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH"
 # 一般ユーザーからも読めるように権限を付与（任意：読み取りで十分）
 RUN chmod -R a+rX "$NVM_DIR"
 
-RUN groupadd -g 1000 hostgroup && \
-    useradd -m -u 1000 -g 1000 ift
-RUN echo "export PS1='\\u@ft:\\w\\$ '" >> /home/ift/.bashrc \
- && echo "ft" > /etc/hostname
-
 RUN npm install -g @anthropic-ai/claude-code
 
 RUN pip install --upgrade huggingface_hub
+
+# 非対話設定
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 1) sudo と必要最低限のツール
+RUN apt-get update && apt-get install -y sudo ca-certificates bash \
+ && rm -rf /var/lib/apt/lists/*
+
+# 2) 一般ユーザー ift を作成して sudo グループへ
+#    ※UID/GID をホストに合わせたい場合は --uid/--gid を明示
+RUN adduser --disabled-password --gecos "" ift \
+ && usermod -aG sudo ift
+
+# 3) パスワードなし sudo
+RUN echo 'ift ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010-ift-nopasswd \
+ && chmod 0440 /etc/sudoers.d/010-ift-nopasswd \
+ && visudo -cf /etc/sudoers.d/010-ift-nopasswd
+
+# RUN groupadd -g 1000 hostgroup && \
+#     useradd -m -u 1000 -g 1000 ift
+RUN echo "export PS1='\\u@ft:\\w\\$ '" >> /home/ift/.bashrc \
+ && echo "ft" > /etc/hostname
 
 WORKDIR /work
