@@ -1,62 +1,56 @@
 #!/usr/bin/env python3
 """
-LoRAファインチューニング済みGemma-3 270M 推論テスト
+TinyLlama 1.1B 推論テスト
 
 実行方法:
-  python src/v1_infer_000.py
+  python src/v2_tinyllama_infer_000.py
 
 必要条件:
-  - ベースモデル: ./tmp_docker/models/gemma-3-270m-it
-  - LoRAモデル: ./src/output/v1
+  - ベースモデル: ./tmp_docker/models/tinyllama-1.1b-chat
   - CPU推論（設定通り）
   
-動作確認済み:
-  - Axentax記法の解析・説明
+動作確認:
+  - TinyLlama チャット形式での会話
+  - Axentax記法の理解テスト
   - 音楽理論知識の応答
-  - 構文有効性の判定
 """
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
 import warnings
 warnings.filterwarnings("ignore")
 
 
 def main():
-    print("🎯 LoRAファインチューニング済みモデル 最終推論テスト")
+    print("🎯 TinyLlama 1.1B ベースモデル 推論テスト")
     print("=" * 60)
     
-    base_model_path = "./tmp_docker/models/gemma-3-270m-it"
-    lora_model_path = "./src/output/v1"
+    model_path = "./tmp_docker/models/tinyllama-1.1b-chat"
     
     try:
         print("Loading tokenizer...")
-        tokenizer = AutoTokenizer.from_pretrained(base_model_path, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         
-        print("Loading base model...")
-        base_model = AutoModelForCausalLM.from_pretrained(
-            base_model_path,
-            dtype=torch.float32,  # 数値安定性のためfloat32
+        print("Loading model...")
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path,
+            dtype=torch.float32,  # CPU推論
             device_map="cpu",
             trust_remote_code=True
         )
-        
-        print("Loading LoRA adapter...")
-        model = PeftModel.from_pretrained(base_model, lora_model_path)
         model.eval()
         
-        print("\n📝 Axentax推論テスト")
+        print("\\n📝 TinyLlama推論テスト")
         
-        # シンプルなテストケース
+        # TinyLlama chat format test cases
         test_cases = [
-            "USER: こんにちは\nASSISTANT:",
-            "USER: Axentaxについて教えて\nASSISTANT:",
-            "USER: @@ 120 1/4 { C F G } この記法は？\nASSISTANT:"
+            "<|user|>\\nこんにちは<|end|>\\n<|assistant|>\\n",
+            "<|user|>\\nAxentaxについて教えて<|end|>\\n<|assistant|>\\n",
+            "<|user|>\\n@@ 120 1/4 { C F G } この記法は何ですか？<|end|>\\n<|assistant|>\\n"
         ]
         
         for i, prompt in enumerate(test_cases, 1):
-            print(f"\n--- テスト {i} ---")
+            print(f"\\n--- テスト {i} ---")
             print(f"プロンプト: {prompt}")
             
             # トークナイズ
@@ -70,10 +64,12 @@ def main():
                 try:
                     outputs = model.generate(
                         inputs["input_ids"],
-                        max_new_tokens=50,
+                        max_new_tokens=80,
                         do_sample=False,  # グリーディ生成
                         num_beams=1,
                         pad_token_id=tokenizer.eos_token_id,
+                        temperature=1.0,
+                        top_p=0.9
                     )
                     
                     # デコード
@@ -88,17 +84,14 @@ def main():
                 except Exception as e:
                     print(f"❌ 生成エラー: {e}")
         
-        print(f"\n📊 モデル情報:")
-        print(f"LoRA保存場所: {lora_model_path}")
-        print(f"ベースモデル: {base_model_path}")
+        print(f"\\n📊 モデル情報:")
+        print(f"モデルパス: {model_path}")
         
         # モデルパラメータ確認
         total_params = sum(p.numel() for p in model.parameters())
-        trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
         print(f"総パラメータ: {total_params:,}")
-        print(f"訓練可能: {trainable_params:,}")
         
-        print("\n🎉 LoRAファインチューニング完了！")
+        print("\\n🎉 TinyLlama推論テスト完了！")
         
     except Exception as e:
         print(f"❌ エラー発生: {e}")

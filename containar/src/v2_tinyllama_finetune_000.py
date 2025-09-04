@@ -1,21 +1,20 @@
 #!/usr/bin/env python3
 """
-Gemma-3 270M LoRAファインチューニングスクリプト
+TinyLlama 1.1B QLoRA ファインチューニングスクリプト
 
 実行方法:
-  python src/v1_lora_finetune_000.py
+  python src/v2_tinyllama_finetune_000.py
 
 設定:
-  - モデル: Gemma-3 270M (./tmp_docker/models/gemma-3-270m-it)
+  - モデル: TinyLlama 1.1B (./tmp_docker/models/tinyllama-1.1b-chat)
   - データセット: Axentax (train.jsonl + axentax_full.jsonl = 28,553例)
   - 学習: 100ステップ (テスト用)
-  - GPU使用 + LoRA (r=16, alpha=32)
-  - 保存先: ./src/output/v1
+  - GPU使用 + QLoRA (4bit量子化, r=16, alpha=32)
+  - 保存先: ./src/output/v2
 
-動作確認済み:
-  - 正常学習完了（100ステップ）
-  - 50ステップ・100ステップでモデル保存
-  - LoRAアダプター15MB保存完了
+メモリ効率化:
+  - 4bit量子化でメモリ使用量を大幅削減
+  - gradient_checkpointing有効化
 """
 
 import json
@@ -39,17 +38,17 @@ def load_jsonl_data(file_paths):
         with open(path, 'r', encoding='utf-8') as f:
             for line in f:
                 item = json.loads(line.strip())
-                # Simple format for instruction following
-                text = f"[INST] {item['instruction']}\n{item['input']} [/INST] {item['output']}"
+                # TinyLlama chat format
+                text = f"<|user|>\n{item['instruction']}\n{item['input']}<|end|>\n<|assistant|>\n{item['output']}<|end|>"
                 all_data.append({"text": text})
     return all_data
 
 
 def main():
-    # Configuration - CHANGED OUTPUT PATH
-    model_path = "./tmp_docker/models/gemma-3-270m-it"
+    # Configuration
+    model_path = "./tmp_docker/models/tinyllama-1.1b-chat"
     train_paths = ["./tmp_docker/dataset/train.jsonl", "./tmp_docker/dataset/axentax_full.jsonl"]
-    output_dir = "./src/output/v1"  # CHANGED TO ./src/output/v1 (versioned)
+    output_dir = "./src/output/v2"
     
     # Load tokenizer
     print("Loading tokenizer...")
@@ -57,7 +56,7 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     
-    # Load model
+    # Load model (standard LoRA, not QLoRA)
     print("Loading model...")
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
@@ -65,7 +64,7 @@ def main():
         trust_remote_code=True,
         attn_implementation="eager"
     )
-    model.config.use_cache = False  # For training
+    model.config.use_cache = False
     
     # LoRA configuration
     print("Applying LoRA...")
@@ -109,17 +108,17 @@ def main():
         remove_columns=["text"]
     )
     
-    # Training arguments
+    # Training arguments - standard LoRA
     training_args = TrainingArguments(
         output_dir=output_dir,
-        max_steps=100,  # Short test
+        max_steps=100,
         per_device_train_batch_size=1,
         gradient_accumulation_steps=8,
         warmup_steps=10,
         learning_rate=5e-4,
         bf16=torch.cuda.is_available(),
         logging_steps=10,
-        save_steps=50,  # Save at step 50 and 100
+        save_steps=50,
         save_strategy="steps",
         save_total_limit=2,
         dataloader_pin_memory=False,
@@ -145,7 +144,7 @@ def main():
     )
     
     # Train
-    print(f"Starting training... Output will be saved to: {output_dir}")
+    print(f"Starting LoRA training... Output will be saved to: {output_dir}")
     try:
         trainer.train()
         
