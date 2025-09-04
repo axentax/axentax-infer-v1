@@ -1,0 +1,25 @@
+services:
+  ft:
+    build: .
+    container_name: ft
+    working_dir: /work/fine-infer
+
+    volumes:
+      - ./containar:/work/fine-infer
+      - ../../../mnt/c/tmp_docker/:/work/fine-infer/tmp_docker
+
+    user: "1000:1000"
+
+    gpus: all
+    shm_size: "8g"
+    ipc: host
+    mem_limit: "47g"
+
+    environment:
+      - PYTHONPATH=/work
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_VISIBLE_DEVICES=0
+
+    tty: true
+    stdin_open: true
+    command: bash
