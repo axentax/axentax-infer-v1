@@ -5,10 +5,10 @@
 ## ファインチューニング詳細
 LoRAを使用する
 
-## ソースにバージョン接頭辞を付与する。改変した場合は設備じの番号をインクリメント
-v1_lora_finetune_000.py
-v1_lora_finetune_001_simple.py
-v1_infer_000.py
+## ソースにバージョン接頭辞を付与する。改変した場合は3桁番号をインクリメント
+v1_000_lora_finetune.py
+v1_001_lora_finetune_simple.py
+v1_000_infer.py
 など
 
 ## 置き場所
